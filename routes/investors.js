@@ -1,11 +1,181 @@
 import express from 'express';
 import Investor from '../models/investor.js';
+import { uploadToCloudinary } from '../lib/cloudinary.js';
 
 const router = express.Router();
 
+// INVESTOR SIGNUP (plain text password)
+router.post('/signup', async (req, res) => {
+  try {
+    const { investorName, email, phone, password } = req.body;
+    if (!investorName || !phone || !password) {
+      return res.status(400).json({ error: 'Name, phone, and password required' });
+    }
+    // Check if investor already exists
+    const existing = await Investor.findOne({ phone });
+    if (existing) {
+      return res.status(409).json({ error: 'Investor already exists' });
+    }
+    const newInvestor = new Investor({ investorName, email, phone, password });
+    await newInvestor.save();
+    res.status(201).json({ message: 'Signup successful', investorId: newInvestor._id });
+  } catch (error) {
+    res.status(500).json({ error: 'Signup failed', message: error.message });
+  }
+});
+
+// INVESTOR LOGIN (plain text password)
+router.post('/login', async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    if (!phone || !password) {
+      return res.status(400).json({ error: 'Phone and password required' });
+    }
+    const investor = await Investor.findOne({ phone });
+    if (!investor) {
+      return res.status(404).json({ error: 'Investor not found' });
+    }
+    if (investor.password !== password) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+    res.json({ message: 'Login successful', investorId: investor._id });
+  } catch (error) {
+    res.status(500).json({ error: 'Login failed', message: error.message });
+  }
+});
+
+// GET all investors
 router.get('/', async (req, res) => {
-  const list = await Investor.find().lean();
-  res.json(list);
+  try {
+    const list = await Investor.find().lean();
+    // Transform _id to id for frontend compatibility
+    const transformedList = list.map(investor => ({
+      ...investor,
+      id: investor._id.toString()
+    }));
+    res.json(transformedList);
+  } catch (error) {
+    console.error('Error fetching investors:', error);
+    res.status(500).json({ error: 'Failed to fetch investors', message: error.message });
+  }
+});
+
+// POST - Create new investor
+router.post('/', async (req, res) => {
+  try {
+    // Handle document uploads to Cloudinary
+    const documentFields = ['profilePhoto', 'aadharDocument', 'aadharDocumentBack', 'panDocument', 'bankDocument'];
+    const uploadedDocs = {};
+    
+    // Generate a temporary ID for folder structure
+    const tempId = Date.now();
+
+    for (const field of documentFields) {
+      if (req.body[field] && req.body[field].startsWith('data:')) {
+        try {
+          const result = await uploadToCloudinary(req.body[field], `investors/${tempId}/${field}`);
+          uploadedDocs[field] = result.secure_url;
+        } catch (uploadErr) {
+          console.error(`Failed to upload ${field}:`, uploadErr);
+        }
+      }
+    }
+
+    // Create investor with uploaded document URLs
+    const investorData = {
+      ...req.body,
+      ...uploadedDocs
+    };
+
+    // Remove base64 data to prevent large document size
+    documentFields.forEach(field => {
+      if (investorData[field]?.startsWith('data:')) {
+        delete investorData[field];
+      }
+    });
+
+    const newInvestor = new Investor(investorData);
+    const saved = await newInvestor.save();
+    const result = {
+      ...saved.toObject(),
+      id: saved._id.toString()
+    };
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Error creating investor:', error);
+    res.status(400).json({ error: 'Failed to create investor', message: error.message });
+  }
+});
+
+// PUT - Update investor
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Handle document uploads to Cloudinary
+    const documentFields = ['profilePhoto', 'aadharDocument', 'aadharDocumentBack', 'panDocument', 'bankDocument'];
+    const uploadedDocs = {};
+
+    for (const field of documentFields) {
+      if (req.body[field] && req.body[field].startsWith('data:')) {
+        try {
+          const result = await uploadToCloudinary(req.body[field], `investors/${id}/${field}`);
+          uploadedDocs[field] = result.secure_url;
+        } catch (uploadErr) {
+          console.error(`Failed to upload ${field}:`, uploadErr);
+        }
+      }
+    }
+
+    // Update investor data with uploaded document URLs
+    const updateData = {
+      ...req.body,
+      ...uploadedDocs
+    };
+
+    // Remove base64 data to prevent large document size
+    documentFields.forEach(field => {
+      if (updateData[field]?.startsWith('data:')) {
+        delete updateData[field];
+      }
+    });
+
+    const updated = await Investor.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+    
+    if (!updated) {
+      return res.status(404).json({ error: 'Investor not found' });
+    }
+    
+    const result = {
+      ...updated.toObject(),
+      id: updated._id.toString()
+    };
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating investor:', error);
+    res.status(400).json({ error: 'Failed to update investor', message: error.message });
+  }
+});
+
+// DELETE - Remove investor
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Investor.findByIdAndDelete(id);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Investor not found' });
+    }
+    
+    res.json({ message: 'Investor deleted successfully', investor: deleted });
+  } catch (error) {
+    console.error('Error deleting investor:', error);
+    res.status(400).json({ error: 'Failed to delete investor', message: error.message });
+  }
 });
 
 export default router;
