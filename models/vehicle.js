@@ -88,7 +88,27 @@ const VehicleSchema = new mongoose.Schema({
   currentValue: Number,
   mileage: Number,
   lastService: String,
-  nextService: String
+  nextService: String,
+
+  // Dynamic rent slabs
+  weeklyRentSlabs: [
+    {
+      trips: Number,
+      rentDay: Number,
+      weeklyRent: Number,
+      accidentalCover: Number,
+      acceptanceRate: Number
+    }
+  ],
+  dailyRentSlabs: [
+    {
+      trips: Number,
+      rentDay: Number,
+      weeklyRent: Number,
+      accidentalCover: Number,
+      acceptanceRate: Number
+    }
+  ]
 }, { 
   timestamps: true,
   strict: false // Allow additional fields

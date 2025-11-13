@@ -19,9 +19,11 @@ function stripAuthFields(source) {
 router.get('/', async (req, res) => {
   try {
     const list = await CarPlan.find().lean();
+    console.log('GET /api/car-plans - Found', list.length, 'plans');
+    console.log('Plans data:', JSON.stringify(list, null, 2));
     res.json(list);
   } catch (err) {
-    console.error(err);
+    console.error('GET /api/car-plans error:', err);
     res.status(500).json({ message: 'Failed to load car plans' });
   }
 });
@@ -43,14 +45,14 @@ router.post('/', async (req, res) => {
   try {
     const body = stripAuthFields(req.body);
     console.log('car-plans POST payload:', JSON.stringify(body).slice(0,1000));
-    // normalize incoming payload so frontend PlanModal (which posts driver-plan shape)
-    // can create a car plan without failing validation
     const payload = {
       name: body.name || body.title || 'Car Plan',
       vehicleType: body.vehicleType || body.category || (Array.isArray(body.vehicleTypes) ? body.vehicleTypes[0] : undefined) || 'General',
       securityDeposit: body.securityDeposit || body.deposit || 0,
-      rows: Array.isArray(body.rows) ? body.rows : [],
+      weeklyRentSlabs: Array.isArray(body.weeklyRentSlabs) ? body.weeklyRentSlabs : [],
+      dailyRentSlabs: Array.isArray(body.dailyRentSlabs) ? body.dailyRentSlabs : [],
       status: body.status || 'active',
+      category: body.category || 'standard',
       createdDate: body.createdDate || new Date().toISOString()
     };
 
@@ -67,10 +69,10 @@ router.post('/', async (req, res) => {
 // Update car plan
 router.put('/:id', async (req, res) => {
   try {
-    // ensure some sensible defaults when updating from frontend modal
     const body = { ...stripAuthFields(req.body) };
     if (!body.vehicleType) body.vehicleType = body.category || (Array.isArray(body.vehicleTypes) ? body.vehicleTypes[0] : undefined) || 'General';
-    if (!Array.isArray(body.rows)) body.rows = body.rows || [];
+    if (!Array.isArray(body.weeklyRentSlabs)) body.weeklyRentSlabs = [];
+    if (!Array.isArray(body.dailyRentSlabs)) body.dailyRentSlabs = [];
     const updated = await CarPlan.findByIdAndUpdate(req.params.id, body, { new: true }).lean();
     if (!updated) return res.status(404).json({ message: 'Not found' });
     res.json(updated);

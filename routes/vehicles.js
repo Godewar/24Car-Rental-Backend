@@ -353,4 +353,68 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Get weekly rent slabs for a vehicle
+router.get('/:id/weekly-rent-slabs', async (req, res) => {
+  try {
+    const vehicleId = Number(req.params.id);
+    const vehicle = await Vehicle.findOne({ vehicleId }).lean();
+    if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
+    res.json(vehicle.weeklyRentSlabs || []);
+  } catch (err) {
+    console.error('Error fetching weekly rent slabs:', err);
+    res.status(500).json({ message: 'Failed to fetch weekly rent slabs' });
+  }
+});
+
+// Update weekly rent slabs for a vehicle
+router.put('/:id/weekly-rent-slabs', async (req, res) => {
+  try {
+    const vehicleId = Number(req.params.id);
+    const { slabs } = req.body;
+    if (!Array.isArray(slabs)) return res.status(400).json({ message: 'slabs must be an array' });
+    const updated = await Vehicle.findOneAndUpdate(
+      { vehicleId },
+      { weeklyRentSlabs: slabs },
+      { new: true }
+    ).lean();
+    if (!updated) return res.status(404).json({ message: 'Vehicle not found' });
+    res.json(updated.weeklyRentSlabs);
+  } catch (err) {
+    console.error('Error updating weekly rent slabs:', err);
+    res.status(500).json({ message: 'Failed to update weekly rent slabs' });
+  }
+});
+
+// Get daily rent slabs for a vehicle
+router.get('/:id/daily-rent-slabs', async (req, res) => {
+  try {
+    const vehicleId = Number(req.params.id);
+    const vehicle = await Vehicle.findOne({ vehicleId }).lean();
+    if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
+    res.json(vehicle.dailyRentSlabs || []);
+  } catch (err) {
+    console.error('Error fetching daily rent slabs:', err);
+    res.status(500).json({ message: 'Failed to fetch daily rent slabs' });
+  }
+});
+
+// Update daily rent slabs for a vehicle
+router.put('/:id/daily-rent-slabs', async (req, res) => {
+  try {
+    const vehicleId = Number(req.params.id);
+    const { slabs } = req.body;
+    if (!Array.isArray(slabs)) return res.status(400).json({ message: 'slabs must be an array' });
+    const updated = await Vehicle.findOneAndUpdate(
+      { vehicleId },
+      { dailyRentSlabs: slabs },
+      { new: true }
+    ).lean();
+    if (!updated) return res.status(404).json({ message: 'Vehicle not found' });
+    res.json(updated.dailyRentSlabs);
+  } catch (err) {
+    console.error('Error updating daily rent slabs:', err);
+    res.status(500).json({ message: 'Failed to update daily rent slabs' });
+  }
+});
+
 export default router;
