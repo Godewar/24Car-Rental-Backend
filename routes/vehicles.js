@@ -16,6 +16,75 @@ function stripAuthFields(source) {
   return cleaned;
 }
 
+// Normalize vehicle object to always include expected keys so clients "see all data"
+function normalizeVehicleShape(v) {
+  const base = {
+    // identity
+    vehicleId: null,
+    registrationNumber: '',
+
+    // primary details
+    category: '',
+    brand: '',
+    model: '',
+    carName: '',
+    color: '',
+    fuelType: '',
+    ownerName: '',
+    ownerPhone: '',
+    year: null,
+    manufactureYear: v?.manufactureYear ?? null,
+
+    // dates and numbers
+    registrationDate: '',
+    rcExpiryDate: '',
+    roadTaxDate: '',
+    roadTaxNumber: '',
+    insuranceDate: '',
+    permitDate: '',
+    emissionDate: '',
+    pucNumber: '',
+    trafficFine: v?.trafficFine ?? null,
+    trafficFineDate: v?.trafficFineDate ?? '',
+
+    // status
+    status: v?.status ?? 'inactive',
+    kycStatus: v?.kycStatus ?? 'pending',
+    assignedDriver: '',
+    remarks: v?.remarks ?? '',
+
+    // legacy docs
+    insuranceDoc: null,
+    rcDoc: null,
+    permitDoc: null,
+    pollutionDoc: null,
+    fitnessDoc: null,
+
+    // new photos
+    registrationCardPhoto: null,
+    roadTaxPhoto: null,
+    pucPhoto: null,
+    permitPhoto: null,
+    carFrontPhoto: null,
+    carLeftPhoto: null,
+    carRightPhoto: null,
+    carBackPhoto: null,
+    carFullPhoto: null,
+
+    // misc
+    make: v?.make ?? '',
+    purchaseDate: v?.purchaseDate ?? '',
+    purchasePrice: v?.purchasePrice ?? null,
+    currentValue: v?.currentValue ?? null,
+    mileage: v?.mileage ?? null,
+    lastService: v?.lastService ?? '',
+    nextService: v?.nextService ?? ''
+  };
+
+  // Merge existing doc over defaults
+  return { ...base, ...(v || {}) };
+}
+
 // Search/filter vehicles
 router.get('/search', async (req, res) => {
   try {
@@ -76,7 +145,7 @@ router.get('/search', async (req, res) => {
     }
 
     const vehicles = await Vehicle.find(filter).lean();
-    res.json(vehicles);
+    res.json(vehicles.map(normalizeVehicleShape));
   } catch (err) {
     console.error('Error searching vehicles:', err);
     res.status(500).json({ message: 'Failed to search vehicles' });
@@ -87,7 +156,7 @@ router.get('/search', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const list = await Vehicle.find().lean();
-    res.json(list);
+    res.json(list.map(normalizeVehicleShape));
   } catch (err) {
     console.error('Error fetching vehicles:', err);
     res.status(500).json({ message: 'Failed to fetch vehicles' });
@@ -102,7 +171,7 @@ router.get('/:id', async (req, res) => {
     if (!vehicle) {
       return res.status(404).json({ message: 'Vehicle not found' });
     }
-    res.json(vehicle);
+    res.json(normalizeVehicleShape(vehicle));
   } catch (err) {
     console.error('Error fetching vehicle:', err);
     res.status(500).json({ message: 'Failed to fetch vehicle' });
