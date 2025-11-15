@@ -1,5 +1,6 @@
 import express from 'express';
 import InvestmentFD from '../models/investmentFD.js';
+import InvestmentPlan from '../models/investmentPlan.js';
 
 const router = express.Router();
 
@@ -40,14 +41,32 @@ router.post('/', async (req, res) => {
       paymentMethod,
       investmentRate,
       investmentAmount,
+      planId,
+      fdType,
+      termMonths,
+      termYears,
       status,
+      kycStatus,
       maturityDate,
       notes
     } = req.body;
 
     // Validation
-    if (!investorName || !phone || !address || !investmentDate || !paymentMethod || !investmentRate || !investmentAmount) {
+    if (!investorName || !phone || !address || !investmentDate || !paymentMethod || !investmentRate || !investmentAmount || !fdType) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Validate FD type
+    if (!['monthly', 'yearly'].includes(fdType)) {
+      return res.status(400).json({ error: 'Invalid FD type. Must be monthly or yearly' });
+    }
+
+    // Validate term based on FD type
+    if (fdType === 'monthly' && (!termMonths || termMonths < 1 || termMonths > 12)) {
+      return res.status(400).json({ error: 'For monthly FD, term must be between 1-12 months' });
+    }
+    if (fdType === 'yearly' && (!termYears || termYears < 1 || termYears > 10)) {
+      return res.status(400).json({ error: 'For yearly FD, term must be between 1-10 years' });
     }
 
     // Validate payment method
@@ -64,6 +83,38 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid investment amount' });
     }
 
+    // Validate kycStatus if provided
+    if (kycStatus && !['pending', 'approved', 'rejected'].includes(kycStatus)) {
+      return res.status(400).json({ error: 'Invalid KYC status' });
+    }
+
+    // Calculate maturity date if not provided
+    let calculatedMaturityDate = maturityDate ? new Date(maturityDate) : null;
+    if (!calculatedMaturityDate) {
+      const invDate = new Date(investmentDate);
+      if (fdType === 'monthly') {
+        calculatedMaturityDate = new Date(invDate.setMonth(invDate.getMonth() + parseInt(termMonths)));
+      } else if (fdType === 'yearly') {
+        calculatedMaturityDate = new Date(invDate.setFullYear(invDate.getFullYear() + parseInt(termYears)));
+      }
+    }
+
+    // Resolve plan name if planId provided
+    let resolvedPlanId = null;
+    let resolvedPlanName = '';
+    if (planId) {
+      try {
+        const plan = await InvestmentPlan.findById(planId).select('name');
+        if (!plan) {
+          return res.status(400).json({ error: 'Invalid planId: plan not found' });
+        }
+        resolvedPlanId = plan._id;
+        resolvedPlanName = plan.name || '';
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid planId format' });
+      }
+    }
+
     // Create new investment FD
     const newInvestment = new InvestmentFD({
       investorName: investorName.trim(),
@@ -74,8 +125,14 @@ router.post('/', async (req, res) => {
       paymentMethod,
       investmentRate: parseFloat(investmentRate),
       investmentAmount: parseFloat(investmentAmount),
+      planId: resolvedPlanId,
+      planName: resolvedPlanName,
+      fdType,
+      termMonths: fdType === 'monthly' ? parseInt(termMonths) : undefined,
+      termYears: fdType === 'yearly' ? parseInt(termYears) : undefined,
       status: status || 'active',
-      maturityDate: maturityDate ? new Date(maturityDate) : null,
+      kycStatus: kycStatus || 'pending',
+      maturityDate: calculatedMaturityDate,
       notes: notes || ''
     });
 
@@ -99,7 +156,12 @@ router.put('/:id', async (req, res) => {
       paymentMethod,
       investmentRate,
       investmentAmount,
+      planId,
+      fdType,
+      termMonths,
+      termYears,
       status,
+      kycStatus,
       maturityDate,
       notes
     } = req.body;
@@ -108,6 +170,32 @@ router.put('/:id', async (req, res) => {
     const investment = await InvestmentFD.findById(req.params.id);
     if (!investment) {
       return res.status(404).json({ error: 'Investment FD not found' });
+    }
+
+    // Validate FD type if provided
+    if (fdType && !['monthly', 'yearly'].includes(fdType)) {
+      return res.status(400).json({ error: 'Invalid FD type. Must be monthly or yearly' });
+    }
+
+    // Validate term based on FD type
+    if (fdType === 'monthly' && termMonths !== undefined && (termMonths < 1 || termMonths > 12)) {
+      return res.status(400).json({ error: 'For monthly FD, term must be between 1-12 months' });
+    }
+    if (fdType === 'yearly' && termYears !== undefined && (termYears < 1 || termYears > 10)) {
+      return res.status(400).json({ error: 'For yearly FD, term must be between 1-10 years' });
+    }
+
+    // Validate FD type if provided
+    if (fdType && !['monthly', 'yearly'].includes(fdType)) {
+      return res.status(400).json({ error: 'Invalid FD type. Must be monthly or yearly' });
+    }
+
+    // Validate term based on FD type
+    if (fdType === 'monthly' && termMonths !== undefined && (termMonths < 1 || termMonths > 12)) {
+      return res.status(400).json({ error: 'For monthly FD, term must be between 1-12 months' });
+    }
+    if (fdType === 'yearly' && termYears !== undefined && (termYears < 1 || termYears > 10)) {
+      return res.status(400).json({ error: 'For yearly FD, term must be between 1-10 years' });
     }
 
     // Validate payment method if provided
@@ -126,6 +214,11 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid investment amount' });
     }
 
+    // Validate kycStatus if provided
+    if (kycStatus !== undefined && !['pending', 'approved', 'rejected'].includes(kycStatus)) {
+      return res.status(400).json({ error: 'Invalid KYC status' });
+    }
+
     // Update fields
     if (investorName !== undefined) investment.investorName = investorName.trim();
     if (email !== undefined) investment.email = email.trim();
@@ -135,8 +228,43 @@ router.put('/:id', async (req, res) => {
     if (paymentMethod !== undefined) investment.paymentMethod = paymentMethod;
     if (investmentRate !== undefined) investment.investmentRate = parseFloat(investmentRate);
     if (investmentAmount !== undefined) investment.investmentAmount = parseFloat(investmentAmount);
+    if (fdType !== undefined) investment.fdType = fdType;
+    if (termMonths !== undefined) investment.termMonths = investment.fdType === 'monthly' ? parseInt(termMonths) : undefined;
+    if (termYears !== undefined) investment.termYears = investment.fdType === 'yearly' ? parseInt(termYears) : undefined;
+
+    // Update plan if provided
+    if (planId !== undefined) {
+      if (!planId) {
+        investment.planId = null;
+        investment.planName = '';
+      } else {
+        try {
+          const plan = await InvestmentPlan.findById(planId).select('name');
+          if (!plan) {
+            return res.status(400).json({ error: 'Invalid planId: plan not found' });
+          }
+          investment.planId = plan._id;
+          investment.planName = plan.name || '';
+        } catch (e) {
+          return res.status(400).json({ error: 'Invalid planId format' });
+        }
+      }
+    }
     if (status !== undefined) investment.status = status;
-    if (maturityDate !== undefined) investment.maturityDate = maturityDate ? new Date(maturityDate) : null;
+    if (kycStatus !== undefined) investment.kycStatus = kycStatus;
+    
+    // Recalculate maturity date if investment date or term changed
+    if ((investmentDate !== undefined || fdType !== undefined || termMonths !== undefined || termYears !== undefined) && maturityDate === undefined) {
+      const invDate = new Date(investment.investmentDate);
+      if (investment.fdType === 'monthly' && investment.termMonths) {
+        investment.maturityDate = new Date(invDate.setMonth(invDate.getMonth() + investment.termMonths));
+      } else if (investment.fdType === 'yearly' && investment.termYears) {
+        investment.maturityDate = new Date(invDate.setFullYear(invDate.getFullYear() + investment.termYears));
+      }
+    } else if (maturityDate !== undefined) {
+      investment.maturityDate = maturityDate ? new Date(maturityDate) : null;
+    }
+    
     if (notes !== undefined) investment.notes = notes;
 
     const updatedInvestment = await investment.save();

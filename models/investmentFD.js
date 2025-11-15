@@ -41,6 +41,33 @@ const investmentFDSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  // Selected plan reference (optional)
+  planId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'InvestmentPlan',
+    default: null
+  },
+  // Denormalized plan name for quick listing
+  planName: {
+    type: String,
+    default: ''
+  },
+  fdType: {
+    type: String,
+    enum: ['monthly', 'yearly'],
+    required: true,
+    default: 'monthly'
+  },
+  termMonths: {
+    type: Number,
+    min: 1,
+    max: 12
+  },
+  termYears: {
+    type: Number,
+    min: 1,
+    max: 10
+  },
   status: {
     type: String,
     enum: ['active', 'matured', 'withdrawn'],
