@@ -46,9 +46,10 @@ router.post('/', async (req, res) => {
       termMonths,
       termYears,
       status,
-      kycStatus,
       maturityDate,
-      notes
+      notes,
+      paymentMode,
+      paymentStatus
     } = req.body;
 
     // Validation
@@ -81,11 +82,6 @@ router.post('/', async (req, res) => {
     }
     if (isNaN(investmentAmount) || parseFloat(investmentAmount) <= 0) {
       return res.status(400).json({ error: 'Invalid investment amount' });
-    }
-
-    // Validate kycStatus if provided
-    if (kycStatus && !['pending', 'approved', 'rejected'].includes(kycStatus)) {
-      return res.status(400).json({ error: 'Invalid KYC status' });
     }
 
     // Calculate maturity date if not provided
@@ -137,10 +133,12 @@ router.post('/', async (req, res) => {
         termMonths: fdType === 'monthly' ? parseInt(termMonths) : undefined,
         termYears: fdType === 'yearly' ? parseInt(termYears) : undefined,
         status: status || 'active',
-        kycStatus: kycStatus || 'pending',
         maturityDate: calculatedMaturityDate,
         notes: notes || '',
-        maturityAmount
+        maturityAmount,
+        ...(paymentMode && { paymentMode }),
+        paymentStatus: paymentStatus || 'pending',
+        ...(paymentStatus === 'completed' && { paymentDate: new Date() })
       });
 
     const savedInvestment = await newInvestment.save();
@@ -168,7 +166,6 @@ router.put('/:id', async (req, res) => {
       termMonths,
       termYears,
       status,
-      kycStatus,
       maturityDate,
       notes
     } = req.body;
@@ -221,11 +218,6 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid investment amount' });
     }
 
-    // Validate kycStatus if provided
-    if (kycStatus !== undefined && !['pending', 'approved', 'rejected'].includes(kycStatus)) {
-      return res.status(400).json({ error: 'Invalid KYC status' });
-    }
-
     // Update fields
     if (investorName !== undefined) investment.investorName = investorName.trim();
     if (email !== undefined) investment.email = email.trim();
@@ -268,7 +260,6 @@ router.put('/:id', async (req, res) => {
       }
     }
     if (status !== undefined) investment.status = status;
-    if (kycStatus !== undefined) investment.kycStatus = kycStatus;
     
     // Recalculate maturity date if investment date or term changed
     if ((investmentDate !== undefined || fdType !== undefined || termMonths !== undefined || termYears !== undefined) && maturityDate === undefined) {
@@ -303,6 +294,54 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting investment FD:', error);
     res.status(500).json({ error: 'Failed to delete investment FD', message: error.message });
+  }
+});
+
+// POST - Confirm payment for FD
+router.post('/:id/confirm-payment', async (req, res) => {
+  try {
+    console.log('Confirm payment request received:', {
+      id: req.params.id,
+      body: req.body
+    });
+
+    const { paymentMode } = req.body;
+
+    if (!paymentMode || !['online', 'cash'].includes(paymentMode)) {
+      console.log('Invalid payment mode:', paymentMode);
+      return res.status(400).json({ error: 'Invalid payment mode. Must be online or cash' });
+    }
+
+    const investment = await InvestmentFD.findById(req.params.id);
+    if (!investment) {
+      console.log('Investment FD not found:', req.params.id);
+      return res.status(404).json({ error: 'Investment FD not found' });
+    }
+
+    console.log('Current investment payment status:', investment.paymentStatus);
+
+    if (investment.paymentStatus === 'completed') {
+      return res.status(400).json({ error: 'Payment already completed' });
+    }
+
+    investment.paymentMode = paymentMode;
+    investment.paymentStatus = 'completed';
+    investment.paymentDate = new Date();
+
+    const updatedInvestment = await investment.save();
+    console.log('Payment confirmed successfully:', {
+      id: updatedInvestment._id,
+      paymentMode: updatedInvestment.paymentMode,
+      paymentStatus: updatedInvestment.paymentStatus
+    });
+
+    res.json({ 
+      message: 'Payment confirmed successfully', 
+      investment: updatedInvestment 
+    });
+  } catch (error) {
+    console.error('Error confirming payment:', error);
+    res.status(500).json({ error: 'Failed to confirm payment', message: error.message });
   }
 });
 

@@ -79,12 +79,25 @@ const investmentFDSchema = new mongoose.Schema({
   notes: {
     type: String,
     default: ''
+  },
+  maturityAmount: {
+    type: Number,
+    default: 0
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'completed', 'failed'],
+    default: 'pending'
+  },
+  paymentDate: {
+    type: Date,
+    default: null
+  },
+  paymentMode: {
+    type: String,
+    enum: ['online', 'cash'],
+    required: false
   }
-    ,
-    maturityAmount: {
-      type: Number,
-      default: 0
-    }
 }, {
   timestamps: true
 });
