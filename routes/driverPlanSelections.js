@@ -43,7 +43,7 @@ router.get('/', async (req, res) => {
       })();
       const cover = s.calculatedCover || (() => {
         const slab = s.selectedRentSlab || {};
-        return slab.accidentalCover || 105;
+        return s.planType === 'weekly' ? (slab.accidentalCover || 105) : 0;
       })();
       const total = s.calculatedTotal || (deposit + rent + cover);
       
@@ -94,7 +94,7 @@ router.get('/:id', async (req, res) => {
     })();
     const cover = selection.calculatedCover || (() => {
       const slab = selection.selectedRentSlab || {};
-      return slab.accidentalCover || 105;
+      return selection.planType === 'weekly' ? (slab.accidentalCover || 105) : 0;
     })();
     const totalAmount = selection.calculatedTotal || (deposit + rent + cover);
     
@@ -148,7 +148,7 @@ router.post('/', authenticateDriver, async (req, res) => {
     const deposit = securityDeposit || 0;
     const slab = selectedRentSlab || {};
     const rent = planType === 'weekly' ? (slab.weeklyRent || 0) : (slab.rentDay || 0);
-    const cover = slab.accidentalCover || 105;
+    const cover = planType === 'weekly' ? (slab.accidentalCover || 105) : 0;
     const totalAmount = deposit + rent + cover;
 
     // Create new selection with calculated values
