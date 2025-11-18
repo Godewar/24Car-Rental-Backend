@@ -120,10 +120,10 @@ router.get('/:id', async (req, res) => {
 // Create new plan selection (Driver selects a plan)
 router.post('/', authenticateDriver, async (req, res) => {
   try {
-    const { planId, planName, planType, securityDeposit, rentSlabs, selectedRentSlab } = req.body;
+    const { planName, planType, securityDeposit, rentSlabs, selectedRentSlab } = req.body;
     
-    if (!planId || !planName || !planType) {
-      return res.status(400).json({ message: 'Plan ID, name, and type are required' });
+    if (!planName || !planType) {
+      return res.status(400).json({ message: 'Plan name and type are required' });
     }
 
     // Get driver info
@@ -156,7 +156,6 @@ router.post('/', authenticateDriver, async (req, res) => {
       driverSignupId: req.driver.id,
       driverUsername: driver.username,
       driverMobile: driver.mobile,
-      planId,
       planName,
       planType,
       securityDeposit: deposit,
