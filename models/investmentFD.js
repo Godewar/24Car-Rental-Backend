@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const investmentFDSchema = new mongoose.Schema({
+  investorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'InvestorSignup',
+    default: null
+  },
   investorName: {
     type: String,
     required: true,
@@ -103,6 +108,7 @@ const investmentFDSchema = new mongoose.Schema({
 });
 
 // Add indexes for better query performance
+investmentFDSchema.index({ investorId: 1 });
 investmentFDSchema.index({ investorName: 1 });
 investmentFDSchema.index({ phone: 1 });
 investmentFDSchema.index({ investmentDate: -1 });

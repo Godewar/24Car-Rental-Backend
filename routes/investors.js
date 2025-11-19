@@ -1,6 +1,7 @@
 import express from 'express';
 import Investor from '../models/investor.js';
 import InvestorSignup from '../models/investorSignup.js';
+import InvestmentFD from '../models/investmentFD.js';
 import { uploadToCloudinary } from '../lib/cloudinary.js';
 
 const router = express.Router();
@@ -19,7 +20,16 @@ router.post('/signup', async (req, res) => {
     }
     const newInvestorSignup = new InvestorSignup({ investorName, email, phone, password });
     await newInvestorSignup.save();
-    res.status(201).json({ message: 'Signup successful', investorId: newInvestorSignup._id });
+    res.status(201).json({ 
+      message: 'Signup successful', 
+      investor: {
+        id: newInvestorSignup._id,
+        investorName: newInvestorSignup.investorName,
+        email: newInvestorSignup.email,
+        phone: newInvestorSignup.phone,
+        registrationCompleted: newInvestorSignup.registrationCompleted || false
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: 'Signup failed', message: error.message });
   }
@@ -39,7 +49,16 @@ router.post('/login', async (req, res) => {
     if (investorSignup.password !== password) {
       return res.status(401).json({ error: 'Invalid password' });
     }
-    res.json({ message: 'Login successful', investorId: investorSignup._id });
+    res.json({ 
+      message: 'Login successful', 
+      investor: {
+        id: investorSignup._id,
+        investorName: investorSignup.investorName,
+        email: investorSignup.email,
+        phone: investorSignup.phone,
+        registrationCompleted: investorSignup.registrationCompleted || false
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: 'Login failed', message: error.message });
   }
@@ -65,7 +84,16 @@ router.post('/signup-otp', async (req, res) => {
       password: otp 
     });
     await newInvestorSignup.save();
-    res.status(201).json({ message: 'Signup successful', investorId: newInvestorSignup._id });
+    res.status(201).json({ 
+      message: 'Signup successful', 
+      investor: {
+        id: newInvestorSignup._id,
+        investorName: newInvestorSignup.investorName,
+        email: newInvestorSignup.email,
+        phone: newInvestorSignup.phone,
+        registrationCompleted: newInvestorSignup.registrationCompleted || false
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: 'Signup failed', message: error.message });
   }
@@ -85,7 +113,16 @@ router.post('/login-otp', async (req, res) => {
     if (investorSignup.password !== otp) {
       return res.status(401).json({ error: 'Invalid OTP' });
     }
-    res.json({ message: 'Login successful', investorId: investorSignup._id });
+    res.json({ 
+      message: 'Login successful', 
+      investor: {
+        id: investorSignup._id,
+        investorName: investorSignup.investorName,
+        email: investorSignup.email,
+        phone: investorSignup.phone,
+        registrationCompleted: investorSignup.registrationCompleted || false
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: 'Login failed', message: error.message });
   }
@@ -236,6 +273,116 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting investor:', error);
     res.status(400).json({ error: 'Failed to delete investor', message: error.message });
+  }
+});
+
+// POST - Create FD record for investor
+router.post('/fd-records/:id', async (req, res) => {
+  try {
+    const investorId = req.params.id;
+    
+    // Find investor signup
+    const investorSignup = await InvestorSignup.findById(investorId);
+    if (!investorSignup) {
+      return res.status(404).json({ error: 'Investor not found' });
+    }
+
+    const {
+      investmentDate,
+      paymentMethod,
+      investmentRate,
+      investmentAmount,
+      planId,
+      fdType,
+      termMonths,
+      termYears,
+      status,
+      notes,
+      paymentMode,
+      address
+    } = req.body;
+
+    // Calculate maturity date and amount
+    let maturityDate = new Date(investmentDate);
+    if (fdType === 'monthly' && termMonths) {
+      maturityDate.setMonth(maturityDate.getMonth() + termMonths);
+    } else if (fdType === 'yearly' && termYears) {
+      maturityDate.setFullYear(maturityDate.getFullYear() + termYears);
+    }
+
+    const termInYears = fdType === 'monthly' ? termMonths / 12 : termYears;
+    const maturityAmount = investmentAmount * Math.pow(1 + investmentRate / 100, termInYears);
+
+    // Create new FD record
+    const newFD = new InvestmentFD({
+      investorId: investorId,
+      investorName: investorSignup.investorName,
+      email: investorSignup.email || '',
+      phone: investorSignup.phone,
+      address: address || investorSignup.address || '',
+      investmentDate,
+      paymentMethod,
+      investmentRate,
+      investmentAmount,
+      planId: planId || null,
+      fdType,
+      termMonths: fdType === 'monthly' ? termMonths : undefined,
+      termYears: fdType === 'yearly' ? termYears : undefined,
+      status: status || 'active',
+      maturityDate,
+      maturityAmount,
+      notes: notes || '',
+      paymentMode: paymentMode || 'online',
+      paymentStatus: 'completed',
+      paymentDate: new Date()
+    });
+
+    const savedFD = await newFD.save();
+    
+    res.status(201).json({
+      message: 'FD record created successfully',
+      fd: savedFD
+    });
+  } catch (error) {
+    console.error('Error creating FD record:', error);
+    res.status(500).json({ error: 'Failed to create FD record', message: error.message });
+  }
+});
+
+// GET investor FD records by investor ID
+router.get('/fd-records/:id', async (req, res) => {
+  try {
+    const investorId = req.params.id;
+    
+    // Find investor signup to get phone number
+    const investorSignup = await InvestorSignup.findById(investorId);
+    if (!investorSignup) {
+      return res.status(404).json({ error: 'Investor not found' });
+    }
+
+    // Find all FD records matching the investor ID or phone number (for backward compatibility)
+    const fdRecords = await InvestmentFD.find({ 
+      $or: [
+        { investorId: investorId },
+        { phone: investorSignup.phone }
+      ]
+    }).sort({ investmentDate: -1 });
+    
+    res.json({
+      investor: {
+        id: investorSignup._id,
+        investorName: investorSignup.investorName,
+        email: investorSignup.email,
+        phone: investorSignup.phone
+      },
+      fdRecords: fdRecords,
+      totalRecords: fdRecords.length,
+      totalInvestment: fdRecords.reduce((sum, fd) => sum + (fd.investmentAmount || 0), 0),
+      totalMaturityAmount: fdRecords.reduce((sum, fd) => sum + (fd.maturityAmount || 0), 0)
+    });
+  } catch (error) {
+    console.error('Error fetching investor FD records:', error);
+    res.status(500).json({ error: 'Failed to fetch FD records', message: error.message });
   }
 });
 
