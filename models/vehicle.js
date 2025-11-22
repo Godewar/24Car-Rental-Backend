@@ -56,6 +56,7 @@ const VehicleSchema = new mongoose.Schema({
   fuelType: String,
   assignedDriver: String,
   rentStartDate: Date,
+  rentPausedDate: Date,
   kycStatus: {
     type: String,
     enum: ['verified', 'pending', 'rejected', 'incomplete'],

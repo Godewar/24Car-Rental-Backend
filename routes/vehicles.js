@@ -330,12 +330,22 @@ router.put('/:id', async (req, res) => {
       }
     }
 
+
     // If assignedDriver is being set and not empty, set rentStartDate if not already set
+    let existing = await Vehicle.findOne({ vehicleId });
     if (updates.assignedDriver && updates.assignedDriver !== '') {
-      const existing = await Vehicle.findOne({ vehicleId });
       if (existing && !existing.rentStartDate) {
         updates.rentStartDate = new Date();
       }
+    }
+
+    // If status is being set to inactive, store rentPausedDate
+    if (updates.status === 'inactive' && existing && existing.status === 'active') {
+      updates.rentPausedDate = new Date();
+    }
+    // If status is being set to active, clear rentPausedDate
+    if (updates.status === 'active') {
+      updates.rentPausedDate = null;
     }
 
     const vehicle = await Vehicle.findOneAndUpdate(
