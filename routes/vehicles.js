@@ -52,6 +52,7 @@ function normalizeVehicleShape(v) {
     kycStatus: v?.kycStatus ?? 'pending',
     assignedDriver: '',
     remarks: v?.remarks ?? '',
+    kycVerifiedDate: v?.kycVerifiedDate ?? null,
 
     // legacy docs
     insuranceDoc: null,
@@ -333,6 +334,7 @@ router.put('/:id', async (req, res) => {
     }
 
 
+
     let existing = await Vehicle.findOne({ vehicleId });
     // If status is being set to active and rentStartDate is not set, start counting days
     if (updates.status === 'active' && (!existing || !existing.rentStartDate)) {
@@ -347,14 +349,22 @@ router.put('/:id', async (req, res) => {
       updates.rentPausedDate = null;
     }
 
-    // If status is being set to inactive, store rentPausedDate
-    if (updates.status === 'inactive' && existing && existing.status === 'active') {
-      updates.rentPausedDate = new Date();
+    // KYC status activation logic
+    if (updates.kycStatus === 'active' && (!existing || !existing.kycActivatedDate)) {
+      updates.kycActivatedDate = new Date();
     }
-    // If status is being set to active, clear rentPausedDate
-    if (updates.status === 'active') {
-      updates.rentPausedDate = null;
+    // If KYC status is set to inactive, clear kycActivatedDate
+    if (updates.kycStatus === 'inactive') {
+      updates.kycActivatedDate = null;
     }
+
+      // KYC verified logic
+      if (updates.kycStatus === 'active' && (!existing || !existing.kycVerifiedDate)) {
+        updates.kycVerifiedDate = new Date();
+      }
+      if (updates.kycStatus === 'inactive') {
+        updates.kycVerifiedDate = null;
+      }
 
     const vehicle = await Vehicle.findOneAndUpdate(
       { vehicleId },

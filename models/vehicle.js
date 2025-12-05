@@ -63,8 +63,14 @@ const VehicleSchema = new mongoose.Schema({
   rentPausedDate: Date,
   kycStatus: {
     type: String,
-    enum: ['verified', 'pending', 'rejected', 'incomplete'],
+    enum: ['active', 'inactive', 'pending'],
     default: 'pending'
+  },
+  kycActivatedDate: {
+    type: Date
+  },
+  kycVerifiedDate: {
+    type: Date
   },
   status: {
     type: String,

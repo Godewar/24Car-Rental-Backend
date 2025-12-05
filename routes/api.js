@@ -32,7 +32,7 @@ import staticInvestmentsRouter from './staticInvestments.js';
 // import staticVehicleDailyRentSlabsRouter from './staticVehicleDailyRentSlabs.js';
 import investmentFDsRouter from './investmentFDs.js';
 import paymentsRouter from './payments.js';
-import carInvestmentsRouter from './carInvestments.js';
+// import carInvestmentsRouter from './carInvestments.js';
 import carInvestmentEntriesRouter from './carInvestmentEntries.js';
 import managersRouter from './managers.js';
 
@@ -68,7 +68,7 @@ router.use('/static/driver-enrollments', staticDriverEnrollmentsRouter);
 // router.use('/static/vehicle-daily-rent-slabs', staticVehicleDailyRentSlabsRouter);
 router.use('/investment-fds', investmentFDsRouter);
 router.use('/payments', paymentsRouter);
-router.use('/car-investments', carInvestmentsRouter);
+// router.use('/car-investments', carInvestmentsRouter);
 
 // New car investment entries collection
 router.use('/car-investment-entries', carInvestmentEntriesRouter);
