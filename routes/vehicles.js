@@ -401,20 +401,28 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-
-
     let existing = await Vehicle.findOne({ vehicleId });
-    // If status is being set to active and rentStartDate is not set, start counting days
-    if (updates.status === 'active' && (!existing || !existing.rentStartDate)) {
-      updates.rentStartDate = new Date();
-    }
-    // If status is being set to inactive and was active, pause counting days
-    if (updates.status === 'inactive' && existing && existing.status === 'active') {
-      updates.rentPausedDate = new Date();
-    }
-    // If status is being set to active, clear rentPausedDate
+    // Track rent periods for each status change
+    if (!existing.rentPeriods) existing.rentPeriods = [];
+    // If status is being set to active
     if (updates.status === 'active') {
+      // If last period is closed or no periods, start a new one
+      const lastPeriod = existing.rentPeriods[existing.rentPeriods.length - 1];
+      if (!lastPeriod || lastPeriod.end) {
+        existing.rentPeriods.push({ start: new Date(), end: null });
+      }
+      updates.rentPeriods = existing.rentPeriods;
+      updates.rentStartDate = new Date();
       updates.rentPausedDate = null;
+    }
+    // If status is being set to inactive and was active, close current period
+    if (updates.status === 'inactive' && existing && existing.status === 'active') {
+      const lastPeriod = existing.rentPeriods[existing.rentPeriods.length - 1];
+      if (lastPeriod && !lastPeriod.end) {
+        lastPeriod.end = new Date();
+      }
+      updates.rentPeriods = existing.rentPeriods;
+      updates.rentPausedDate = new Date();
     }
 
     // KYC status activation logic
@@ -433,6 +441,21 @@ router.put('/:id', async (req, res) => {
       if (updates.kycStatus === 'inactive') {
         updates.kycVerifiedDate = null;
       }
+
+    // Calculate total active months from rentPeriods
+    let activeMonths = 0;
+    let monthlyProfitMin = (typeof updates !== 'undefined' && updates.monthlyProfitMin !== undefined)
+      ? updates.monthlyProfitMin
+      : (existing.monthlyProfitMin || 0);
+    if (Array.isArray(existing.rentPeriods)) {
+      existing.rentPeriods.forEach(period => {
+        const start = new Date(period.start);
+        const end = period.end ? new Date(period.end) : new Date();
+        const diffDays = Math.floor((end - start) / (1000 * 60 * 60 * 24));
+        activeMonths += Math.floor(diffDays / 30) + 1;
+      });
+    }
+    updates.totalProfit = monthlyProfitMin * activeMonths;
 
     const vehicle = await Vehicle.findOneAndUpdate(
       { vehicleId },
