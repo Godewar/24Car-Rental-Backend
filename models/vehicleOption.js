@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const VehicleOptionSchema = new mongoose.Schema({
-  type: { type: String, required: true, enum: ['category', 'brand', 'model', 'carName'] },
+  type: { type: String, required: true, enum: ['category', 'brand', 'model', 'vehicleName'] },
   value: { type: String, required: true },
   valueLower: { type: String, required: true },
   isActive: { type: Boolean, default: true },

@@ -7,6 +7,17 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const { type } = req.query;
+    
+    // Handle categories specially - return predefined categories
+    if (type === 'category') {
+      const categories = [
+        { type: 'category', value: 'Car', valueLower: 'car' },
+        { type: 'category', value: 'Bike', valueLower: 'bike' },
+        { type: 'category', value: 'Scooty', valueLower: 'scooty' }
+      ];
+      return res.json(categories);
+    }
+    
     const filter = type ? { type } : {};
     const items = await VehicleOption.find(filter).sort({ valueLower: 1 }).lean();
     res.json(items);
@@ -21,6 +32,16 @@ router.post('/', async (req, res) => {
   try {
     const { type, value } = req.body || {};
     if (!type || !value) return res.status(400).json({ message: 'type and value are required' });
+
+    // Prevent adding custom categories - categories are predefined
+    if (type === 'category') {
+      const allowedCategories = ['Car', 'Bike', 'Scooty'];
+      if (!allowedCategories.includes(value)) {
+        return res.status(400).json({ message: 'Invalid category. Allowed categories are: Car, Bike, Scooty' });
+      }
+      // Return the predefined category (don't save to database)
+      return res.status(200).json({ type, value, valueLower: value.toLowerCase() });
+    }
 
     const option = new VehicleOption({ type, value });
     await option.save();

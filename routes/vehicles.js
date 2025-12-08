@@ -5,6 +5,15 @@ import { uploadToCloudinary } from '../lib/cloudinary.js';
 
 const router = express.Router();
 
+// Vehicle categories endpoint
+router.get('/categories', async (req, res) => {
+  res.json([
+    { key: 'Car', label: 'Car' },
+    { key: 'Bike', label: 'Bike' },
+    { key: 'Scooty', label: 'Scooty' }
+  ]);
+});
+
 // Remove any token/auth-related fields from incoming bodies
 function stripAuthFields(source) {
   if (!source || typeof source !== 'object') return {};
@@ -27,7 +36,7 @@ function normalizeVehicleShape(v) {
     category: '',
     brand: '',
     model: '',
-    carName: '',
+    vehicleName: '',
     color: '',
     fuelType: '',
     ownerName: '',
@@ -83,7 +92,14 @@ function normalizeVehicleShape(v) {
   };
 
   // Merge existing doc over defaults
-  return { ...base, ...(v || {}) };
+  const merged = { ...base, ...(v || {}) };
+  
+  // Handle backward compatibility: if vehicleName is empty but carName exists, use carName
+  if (!merged.vehicleName && merged.carName) {
+    merged.vehicleName = merged.carName;
+  }
+  
+  return merged;
 }
 
 // Search/filter vehicles
@@ -95,7 +111,7 @@ router.get('/search', async (req, res) => {
       brand,
       category,
       model,
-      carName,
+      vehicleName,
       color,
       fuelType,
       ownerName,
@@ -118,7 +134,7 @@ router.get('/search', async (req, res) => {
         { brand: searchRegex },
         { category: searchRegex },
         { model: searchRegex },
-        { carName: searchRegex },
+        { vehicleName: searchRegex },
         { ownerName: searchRegex },
         { ownerPhone: searchRegex },
         { assignedDriver: searchRegex }
@@ -130,7 +146,7 @@ router.get('/search', async (req, res) => {
     if (brand) filter.brand = new RegExp(brand, 'i');
     if (category) filter.category = new RegExp(category, 'i');
     if (model) filter.model = new RegExp(model, 'i');
-    if (carName) filter.carName = new RegExp(carName, 'i');
+    if (vehicleName) filter.vehicleName = new RegExp(vehicleName, 'i');
     if (color) filter.color = new RegExp(color, 'i');
     if (fuelType) filter.fuelType = new RegExp(fuelType, 'i');
     if (ownerName) filter.ownerName = new RegExp(ownerName, 'i');
@@ -211,6 +227,15 @@ router.post('/', async (req, res) => {
     vehicleData.registrationNumber = (vehicleData.registrationNumber || '').toString().trim();
     if (vehicleData.year != null) vehicleData.year = Number(vehicleData.year);
     if (vehicleData.trafficFine != null) vehicleData.trafficFine = Number(vehicleData.trafficFine);
+
+    // Handle backward compatibility for carName -> vehicleName
+    if (!vehicleData.vehicleName && vehicleData.carName) {
+      vehicleData.vehicleName = vehicleData.carName;
+    }
+    // For forward compatibility, also set carName if vehicleName is provided
+    if (vehicleData.vehicleName && !vehicleData.carName) {
+      vehicleData.carName = vehicleData.vehicleName;
+    }
 
     // Normalize category and carCategory to match investment entry names
     try {
@@ -299,6 +324,28 @@ router.post('/', async (req, res) => {
     const latestVehicle = await Vehicle.findOne({}).sort({ vehicleId: -1 });
     const nextVehicleId = (latestVehicle?.vehicleId || 0) + 1;
 
+    // Handle missing investorId by creating/finding default investor
+    if (!vehicleData.investorId) {
+      try {
+        const Investor = (await import('../models/investor.js')).default;
+        let defaultInvestor = await Investor.findOne({ investorName: 'Default Admin' });
+        
+        if (!defaultInvestor) {
+          defaultInvestor = await Investor.create({
+            investorName: 'Default Admin',
+            phone: '0000000000',
+            email: 'admin@default.com',
+            status: 'active'
+          });
+        }
+        vehicleData.investorId = defaultInvestor._id;
+      } catch (investorErr) {
+        console.error('Error handling investorId:', investorErr);
+        // If investor creation fails, we'll let the vehicle creation proceed without it
+        // since we made it optional in the model
+      }
+    }
+
     const vehicle = new Vehicle({
       ...vehicleData,
       ...uploadedDocs,
@@ -326,6 +373,15 @@ router.put('/:id', async (req, res) => {
     if (updates.registrationNumber) updates.registrationNumber = String(updates.registrationNumber).trim();
     if (updates.year != null) updates.year = Number(updates.year);
     if (updates.trafficFine != null) updates.trafficFine = Number(updates.trafficFine);
+
+    // Handle backward compatibility for carName -> vehicleName
+    if (!updates.vehicleName && updates.carName) {
+      updates.vehicleName = updates.carName;
+    }
+    // For forward compatibility, also set carName if vehicleName is provided
+    if (updates.vehicleName && !updates.carName) {
+      updates.carName = updates.vehicleName;
+    }
 
     // Normalize category and carCategory to match investment entry names
     try {

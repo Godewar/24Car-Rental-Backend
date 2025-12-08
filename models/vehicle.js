@@ -27,7 +27,7 @@ const VehicleSchema = new mongoose.Schema({
   investorId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Investor',
-    required: true
+    required: false // Make it optional for now
   },
   registrationNumber: {
     type: String,
@@ -38,8 +38,12 @@ const VehicleSchema = new mongoose.Schema({
   // Core details
   model: String,
   brand: String,
-  category: String,
-  carName: String,
+  category: {
+    type: String,
+    enum: ['Car', 'Bike', 'Scooty'],
+    required: true
+  },
+  vehicleName: String,
   ownerName: String,
   ownerPhone: String,
   year: Number,
@@ -63,7 +67,7 @@ const VehicleSchema = new mongoose.Schema({
   rentPausedDate: Date,
   kycStatus: {
     type: String,
-    enum: ['active', 'inactive', 'pending'],
+    enum: ['active', 'inactive', 'pending', 'verified', 'rejected'],
     default: 'pending'
   },
   kycActivatedDate: {
