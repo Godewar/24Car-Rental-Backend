@@ -1,0 +1,341 @@
+import mongoose from 'mongoose';
+
+// Counter for booking IDs
+const getNextBookingId = async () => {
+  const Counter = mongoose.model('Counter');
+  const counter = await Counter.findByIdAndUpdate(
+    'bookingId',
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return counter.seq;
+};
+
+const BookingSchema = new mongoose.Schema({
+  bookingId: {
+    type: Number,
+    unique: true
+  },
+  
+  // User/Customer info
+  customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  customerName: {
+    type: String,
+    required: true
+  },
+  customerPhone: {
+    type: String,
+    required: true
+  },
+  customerEmail: String,
+  
+  // Customer documents (for self-drive verification)
+  drivingLicense: {
+    number: String,
+    expiryDate: Date,
+    verified: {
+      type: Boolean,
+      default: false
+    },
+    photoUrl: String
+  },
+  aadharCard: {
+    number: String,
+    verified: {
+      type: Boolean,
+      default: false
+    },
+    photoUrl: String
+  },
+  
+  // Vehicle details
+  vehicleId: {
+    type: Number,
+    required: true,
+    ref: 'Vehicle'
+  },
+  vehicleCategory: {
+    type: String,
+    enum: ['Car', 'Bike', 'Scooty'],
+    required: true
+  },
+  vehicleName: String,
+  registrationNumber: String,
+  brand: String,
+  model: String,
+  
+  // Location data (GeoJSON format for MongoDB geospatial queries)
+  pickupLocation: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      required: true
+    },
+    address: {
+      type: String,
+      required: true
+    },
+    landmark: String,
+    city: String,
+    state: String,
+    pincode: String
+  },
+  
+  dropoffLocation: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      required: true
+    },
+    address: {
+      type: String,
+      required: true
+    },
+    landmark: String,
+    city: String,
+    state: String,
+    pincode: String
+  },
+  
+  // Current location (for tracking during ride)
+  currentLocation: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: [Number],
+    updatedAt: Date
+  },
+  
+  // Booking time details
+  bookingType: {
+    type: String,
+    enum: ['immediate', 'scheduled'],
+    default: 'immediate'
+  },
+  scheduledPickupTime: Date,
+  actualPickupTime: Date,
+  actualDropoffTime: Date,
+  estimatedDuration: Number, // in minutes
+  actualDuration: Number, // in minutes
+  
+  // Distance
+  estimatedDistance: {
+    type: Number, // in kilometers
+    required: true
+  },
+  actualDistance: Number, // in kilometers
+  
+  // Fare details
+  baseFare: {
+    type: Number,
+    required: true
+  },
+  distanceFare: Number,
+  timeFare: Number,
+  surgeFare: Number,
+  surgeMultiplier: {
+    type: Number,
+    default: 1.0
+  },
+  platformFee: Number,
+  gst: Number,
+  discount: {
+    type: Number,
+    default: 0
+  },
+  promoCode: String,
+  totalFare: {
+    type: Number,
+    required: true
+  },
+  paidAmount: {
+    type: Number,
+    default: 0
+  },
+  
+  // Payment
+  paymentMethod: {
+    type: String,
+    enum: ['cash', 'online', 'wallet', 'card'],
+    default: 'cash'
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'failed', 'refunded'],
+    default: 'pending'
+  },
+  paymentId: String,
+  paymentGateway: String,
+  
+  // Booking status
+  status: {
+    type: String,
+    enum: [
+      'pending',           // Initial state
+      'confirmed',         // Vehicle assigned
+      'driver_assigned',   // Driver assigned
+      'driver_arrived',    // Driver reached pickup
+      'started',           // Trip started
+      'completed',         // Trip completed
+      'cancelled',         // Cancelled by user/admin
+      'driver_cancelled',  // Cancelled by driver
+      'no_show'           // Customer didn't show up
+    ],
+    default: 'pending'
+  },
+  
+  // Cancellation
+  cancellationReason: String,
+  cancelledBy: String, // 'customer', 'driver', 'admin'
+  cancelledAt: Date,
+  cancellationCharge: {
+    type: Number,
+    default: 0
+  },
+  
+  // Rating & Feedback
+  customerRating: {
+    type: Number,
+    min: 1,
+    max: 5
+  },
+  customerFeedback: String,
+  driverRating: {
+    type: Number,
+    min: 1,
+    max: 5
+  },
+  driverFeedback: String,
+  
+  // Additional details
+  numberOfPassengers: {
+    type: Number,
+    default: 1
+  },
+  specialRequests: String,
+  notes: String,
+  
+  // Tracking
+  statusHistory: [{
+    status: String,
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    updatedBy: String,
+    notes: String
+  }],
+  
+  // OTP for verification
+  pickupOTP: String,
+  dropoffOTP: String,
+  otpVerified: {
+    type: Boolean,
+    default: false
+  }
+  
+}, {
+  timestamps: true
+});
+
+// Indexes for performance
+BookingSchema.index({ bookingId: 1 });
+BookingSchema.index({ vehicleId: 1, status: 1 });
+BookingSchema.index({ customerId: 1 });
+BookingSchema.index({ driverId: 1 });
+BookingSchema.index({ status: 1, createdAt: -1 });
+BookingSchema.index({ 'pickupLocation.coordinates': '2dsphere' });
+BookingSchema.index({ 'dropoffLocation.coordinates': '2dsphere' });
+BookingSchema.index({ customerPhone: 1 });
+
+// Pre-save middleware to generate bookingId
+BookingSchema.pre('save', async function(next) {
+  try {
+    if (this.isNew && !this.bookingId) {
+      this.bookingId = await getNextBookingId();
+    }
+    
+    // Add to status history on first save
+    if (this.isNew) {
+      this.statusHistory.push({
+        status: this.status,
+        timestamp: new Date(),
+        updatedBy: 'system'
+      });
+    } else if (this.isModified('status')) {
+      // Add to status history on updates
+      this.statusHistory.push({
+        status: this.status,
+        timestamp: new Date(),
+        updatedBy: 'system'
+      });
+    }
+    
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Methods
+BookingSchema.methods.updateStatus = function(newStatus, updatedBy = 'system', notes = '') {
+  this.status = newStatus;
+  this.statusHistory.push({
+    status: newStatus,
+    timestamp: new Date(),
+    updatedBy,
+    notes
+  });
+  return this.save();
+};
+
+BookingSchema.methods.calculateFinalFare = function() {
+  const base = this.baseFare || 0;
+  const distance = this.distanceFare || 0;
+  const time = this.timeFare || 0;
+  const surge = this.surgeFare || 0;
+  const platform = this.platformFee || 0;
+  const gst = this.gst || 0;
+  const discount = this.discount || 0;
+  
+  const subtotal = base + distance + time + surge + platform;
+  const total = subtotal + gst - discount;
+  
+  this.totalFare = Math.max(0, total);
+  return this.totalFare;
+};
+
+// Static methods
+BookingSchema.statics.findActiveBookingForVehicle = async function(vehicleId) {
+  return this.findOne({
+    vehicleId,
+    status: {
+      $in: ['confirmed', 'driver_assigned', 'driver_arrived', 'started']
+    }
+  });
+};
+
+BookingSchema.statics.findActiveBookingForDriver = async function(driverId) {
+  return this.findOne({
+    driverId,
+    status: {
+      $in: ['driver_assigned', 'driver_arrived', 'started']
+    }
+  });
+};
+
+const Booking = mongoose.models.Booking || mongoose.model('Booking', BookingSchema);
+export default Booking;

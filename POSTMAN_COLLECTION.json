@@ -1,0 +1,628 @@
+{
+  "info": {
+    "name": "24 Car Rental API - ZoomCar Clone",
+    "description": "Complete API collection for 24 Car Rental Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3002/api",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "mock",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Vehicle Management",
+      "item": [
+        {
+          "name": "Get Vehicle Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["vehicles", "categories"]
+            }
+          }
+        },
+        {
+          "name": "Get All Vehicles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["vehicles"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Vehicles by Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/by-category/Car",
+              "host": ["{{baseUrl}}"],
+              "path": ["vehicles", "by-category", "Car"]
+            }
+          }
+        },
+        {
+          "name": "Get Nearby Vehicles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/nearby?latitude=28.6139&longitude=77.2090&maxDistance=5000",
+              "host": ["{{baseUrl}}"],
+              "path": ["vehicles", "nearby"],
+              "query": [
+                { "key": "latitude", "value": "28.6139" },
+                { "key": "longitude", "value": "77.2090" },
+                { "key": "maxDistance", "value": "5000" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Vehicles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/search?category=Car&fuelType=Petrol",
+              "host": ["{{baseUrl}}"],
+              "path": ["vehicles", "search"],
+              "query": [
+                { "key": "category", "value": "Car" },
+                { "key": "fuelType", "value": "Petrol" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Vehicle by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["vehicles", ":id"]
+            }
+          }
+        },
+        {
+          "name": "Create Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registrationNumber\": \"DL01XX9999\",\n  \"category\": \"Car\",\n  \"brand\": \"Maruti Suzuki\",\n  \"model\": \"Swift\",\n  \"vehicleName\": \"Swift VXI\",\n  \"color\": \"White\",\n  \"fuelType\": \"Petrol\",\n  \"ownerName\": \"Test Owner\",\n  \"ownerPhone\": \"9876543210\",\n  \"year\": 2023\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vehicles",
+              "host": ["{{baseUrl}}"],
+              "path": ["vehicles"]
+            }
+          }
+        },
+        {
+          "name": "Update Vehicle",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\",\n  \"kycStatus\": \"verified\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["vehicles", ":id"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Booking Management",
+      "item": [
+        {
+          "name": "Estimate Rental Price",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/estimate-price?category=Car&pickupDate=2025-12-15&returnDate=2025-12-17",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "estimate-price"],
+              "query": [
+                { "key": "category", "value": "Car" },
+                { "key": "pickupDate", "value": "2025-12-15" },
+                { "key": "returnDate", "value": "2025-12-17" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Available Vehicles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/search-vehicles?category=Car&pickupDate=2025-12-15&returnDate=2025-12-17",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "search-vehicles"],
+              "query": [
+                { "key": "category", "value": "Car" },
+                { "key": "pickupDate", "value": "2025-12-15" },
+                { "key": "returnDate", "value": "2025-12-17" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Booking Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/stats/overview",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "stats", "overview"]
+            }
+          }
+        },
+        {
+          "name": "Get All Bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            }
+          }
+        },
+        {
+          "name": "Create Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user123\",\n  \"vehicleId\": 7,\n  \"pickupDate\": \"2025-12-15T10:00:00.000Z\",\n  \"returnDate\": \"2025-12-17T10:00:00.000Z\",\n  \"pickupLocation\": {\n    \"latitude\": 28.6139,\n    \"longitude\": 77.2090,\n    \"address\": \"Connaught Place, Delhi\"\n  },\n  \"returnLocation\": {\n    \"latitude\": 28.6139,\n    \"longitude\": 77.2090,\n    \"address\": \"Connaught Place, Delhi\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            }
+          }
+        },
+        {
+          "name": "Process Pickup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"odometerReading\": 12500,\n  \"fuelLevel\": \"full\",\n  \"condition\": \"good\",\n  \"photos\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings/:id/pickup",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", ":id", "pickup"]
+            }
+          }
+        },
+        {
+          "name": "Process Return",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"odometerReading\": 12700,\n  \"fuelLevel\": \"full\",\n  \"condition\": \"good\",\n  \"damage\": \"none\",\n  \"photos\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings/:id/return",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", ":id", "return"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Payment Processing",
+      "item": [
+        {
+          "name": "Test Zwitch Configuration",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/zwitch/test",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "zwitch", "test"]
+            }
+          }
+        },
+        {
+          "name": "Process Zwitch Payout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"driver123\",\n  \"amount\": 5000,\n  \"accountNumber\": \"1234567890\",\n  \"ifsc\": \"HDFC0001234\",\n  \"beneficiaryName\": \"Driver Name\",\n  \"phone\": \"9876543210\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/zwitch/payout",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "zwitch", "payout"]
+            }
+          }
+        },
+        {
+          "name": "Get Payout Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/zwitch/status/:referenceId",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "zwitch", "status", ":referenceId"]
+            }
+          }
+        },
+        {
+          "name": "Verify Bank Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountNumber\": \"1234567890\",\n  \"ifsc\": \"HDFC0001234\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/zwitch/verify-account",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "zwitch", "verify-account"]
+            }
+          }
+        },
+        {
+          "name": "Get All Driver Payments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/drivers",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "drivers"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Expense Management",
+      "item": [
+        {
+          "name": "Get Expense Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/expenses/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["expenses", "categories"]
+            }
+          }
+        },
+        {
+          "name": "Get All Expenses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/expenses",
+              "host": ["{{baseUrl}}"],
+              "path": ["expenses"]
+            }
+          }
+        },
+        {
+          "name": "Create Expense",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"fuel\",\n  \"amount\": 5000,\n  \"date\": \"2025-12-09\",\n  \"description\": \"Monthly fuel expense\",\n  \"vehicleId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/expenses",
+              "host": ["{{baseUrl}}"],
+              "path": ["expenses"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Driver Plan Selection",
+      "item": [
+        {
+          "name": "Get Plans by Manager",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_JWT_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/driver-plan-selections/by-manager/:managerId",
+              "host": ["{{baseUrl}}"],
+              "path": ["driver-plan-selections", "by-manager", ":managerId"]
+            }
+          }
+        },
+        {
+          "name": "Get Plans by Mobile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/driver-plan-selections/by-mobile/:mobile",
+              "host": ["{{baseUrl}}"],
+              "path": ["driver-plan-selections", "by-mobile", ":mobile"]
+            }
+          }
+        },
+        {
+          "name": "Get All Plan Selections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/driver-plan-selections",
+              "host": ["{{baseUrl}}"],
+              "path": ["driver-plan-selections"]
+            }
+          }
+        },
+        {
+          "name": "Get Rent Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/driver-plan-selections/:id/rent-summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["driver-plan-selections", ":id", "rent-summary"]
+            }
+          }
+        },
+        {
+          "name": "Confirm Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentMode\": \"online\",\n  \"paidAmount\": 10000,\n  \"paymentType\": \"security\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/driver-plan-selections/:id/confirm-payment",
+              "host": ["{{baseUrl}}"],
+              "path": ["driver-plan-selections", ":id", "confirm-payment"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Authentication",
+      "item": [
+        {
+          "name": "User Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "User Registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\",\n  \"phone\": \"9876543210\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Verify Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR_JWT_TOKEN"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Driver Management",
+      "item": [
+        {
+          "name": "Get All Drivers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/drivers",
+              "host": ["{{baseUrl}}"],
+              "path": ["drivers"]
+            }
+          }
+        },
+        {
+          "name": "Get Driver by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/drivers/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["drivers", ":id"]
+            }
+          }
+        },
+        {
+          "name": "Create Driver",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Driver Name\",\n  \"phone\": \"9876543210\",\n  \"email\": \"driver@example.com\",\n  \"licenseNumber\": \"DL123456789\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/drivers",
+              "host": ["{{baseUrl}}"],
+              "path": ["drivers"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

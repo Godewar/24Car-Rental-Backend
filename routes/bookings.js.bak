@@ -1,0 +1,715 @@
+import express from "express";
+import Booking from "../models/booking.js";
+import Vehicle from "../models/vehicle.js";
+import Driver from "../models/driver.js";
+import {
+  calculateDistance,
+  calculateFare,
+  getFareEstimates,
+  calculateCancellationCharge,
+  estimateDuration,
+} from "../lib/fareCalculator.js";
+
+const router = express.Router();
+
+/**
+ * Get fare estimates for all vehicle categories
+ * POST /api/bookings/estimate-fare
+ */
+router.post("/estimate-fare", async (req, res) => {
+  try {
+    const {
+      pickupLat,
+      pickupLon,
+      dropoffLat,
+      dropoffLon,
+      demandLevel = "low",
+      bookingTime,
+    } = req.body;
+
+    // Validate coordinates
+    if (!pickupLat || !pickupLon || !dropoffLat || !dropoffLon) {
+      return res.status(400).json({
+        message: "Pickup and dropoff coordinates are required",
+      });
+    }
+
+    const estimates = getFareEstimates(
+      pickupLat,
+      pickupLon,
+      dropoffLat,
+      dropoffLon,
+      demandLevel,
+      bookingTime ? new Date(bookingTime) : new Date()
+    );
+
+    res.json({
+      success: true,
+      estimates,
+    });
+  } catch (err) {
+    console.error("Error estimating fare:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Failed to estimate fare",
+    });
+  }
+});
+
+/**
+ * Search nearby available vehicles
+ * POST /api/bookings/search-vehicles
+ */
+router.post("/search-vehicles", async (req, res) => {
+  try {
+    const {
+      latitude,
+      longitude,
+      category,
+      maxDistance = 5000, // 5 km default
+    } = req.body;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: false,
+        message: "Location coordinates are required",
+      });
+    }
+
+    // Find nearby available vehicles
+    const vehicles = await Vehicle.findNearby(
+      longitude,
+      latitude,
+      maxDistance,
+      category
+    );
+
+    // Calculate distance for each vehicle
+    const vehiclesWithDistance = vehicles.map((vehicle) => {
+      const vehicleObj = vehicle.toObject();
+
+      if (
+        vehicleObj.currentLocation &&
+        vehicleObj.currentLocation.coordinates
+      ) {
+        const [vLon, vLat] = vehicleObj.currentLocation.coordinates;
+        vehicleObj.distanceFromPickup = calculateDistance(
+          latitude,
+          longitude,
+          vLat,
+          vLon
+        );
+        vehicleObj.estimatedArrival = estimateDuration(
+          vehicleObj.distanceFromPickup,
+          vehicleObj.category
+        );
+      }
+
+      return vehicleObj;
+    });
+
+    // Sort by distance
+    vehiclesWithDistance.sort(
+      (a, b) =>
+        (a.distanceFromPickup || Infinity) - (b.distanceFromPickup || Infinity)
+    );
+
+    res.json({
+      success: true,
+      count: vehiclesWithDistance.length,
+      vehicles: vehiclesWithDistance,
+    });
+  } catch (err) {
+    console.error("Error searching vehicles:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to search vehicles",
+    });
+  }
+});
+
+/**
+ * Create a new booking
+ * POST /api/bookings
+ */
+router.post("/", async (req, res) => {
+  try {
+    const {
+      customerName,
+      customerPhone,
+      customerEmail,
+      vehicleId,
+      pickupLocation,
+      dropoffLocation,
+      bookingType = "immediate",
+      scheduledPickupTime,
+      numberOfPassengers = 1,
+      specialRequests,
+      paymentMethod = "cash",
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !customerName ||
+      !customerPhone ||
+      !vehicleId ||
+      !pickupLocation ||
+      !dropoffLocation
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+      });
+    }
+
+    // Validate location data
+    if (
+      !pickupLocation.coordinates ||
+      !pickupLocation.address ||
+      !dropoffLocation.coordinates ||
+      !dropoffLocation.address
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Complete location data with coordinates and address is required",
+      });
+    }
+
+    // Find vehicle
+    const vehicle = await Vehicle.findOne({ vehicleId });
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    // Check if vehicle is available
+    if (!vehicle.isAvailable || vehicle.status !== "active") {
+      return res.status(400).json({
+        success: false,
+        message: "Vehicle is not available for booking",
+      });
+    }
+
+    // Check for existing active booking
+    const existingBooking = await Booking.findActiveBookingForVehicle(
+      vehicleId
+    );
+    if (existingBooking) {
+      return res.status(400).json({
+        success: false,
+        message: "Vehicle is currently booked",
+      });
+    }
+
+    // Calculate distance and fare
+    const [pickupLon, pickupLat] = pickupLocation.coordinates;
+    const [dropoffLon, dropoffLat] = dropoffLocation.coordinates;
+
+    const distance = calculateDistance(
+      pickupLat,
+      pickupLon,
+      dropoffLat,
+      dropoffLon
+    );
+    const duration = estimateDuration(distance, vehicle.category);
+
+    const fareDetails = calculateFare({
+      category: vehicle.category,
+      distance,
+      duration,
+      demandLevel: req.body.demandLevel || "low",
+      bookingTime: scheduledPickupTime
+        ? new Date(scheduledPickupTime)
+        : new Date(),
+    });
+
+    // Create booking
+    const booking = new Booking({
+      customerName,
+      customerPhone,
+      customerEmail,
+      vehicleId: vehicle.vehicleId,
+      vehicleCategory: vehicle.category,
+      vehicleName: vehicle.vehicleName || vehicle.model,
+      registrationNumber: vehicle.registrationNumber,
+      pickupLocation: {
+        type: "Point",
+        coordinates: pickupLocation.coordinates,
+        address: pickupLocation.address,
+        landmark: pickupLocation.landmark,
+        city: pickupLocation.city,
+        state: pickupLocation.state,
+        pincode: pickupLocation.pincode,
+      },
+      dropoffLocation: {
+        type: "Point",
+        coordinates: dropoffLocation.coordinates,
+        address: dropoffLocation.address,
+        landmark: dropoffLocation.landmark,
+        city: dropoffLocation.city,
+        state: dropoffLocation.state,
+        pincode: dropoffLocation.pincode,
+      },
+      bookingType,
+      scheduledPickupTime: scheduledPickupTime
+        ? new Date(scheduledPickupTime)
+        : null,
+      estimatedDistance: distance,
+      estimatedDuration: duration,
+      baseFare: fareDetails.baseFare,
+      distanceFare: fareDetails.distanceFare,
+      timeFare: fareDetails.timeFare,
+      surgeFare: fareDetails.surgeFare,
+      surgeMultiplier: fareDetails.surgeMultiplier,
+      platformFee: fareDetails.platformFee,
+      gst: fareDetails.gst,
+      totalFare: fareDetails.totalFare,
+      paymentMethod,
+      numberOfPassengers,
+      specialRequests,
+      status: "pending",
+    });
+
+    await booking.save();
+
+    // Mark vehicle as unavailable
+    vehicle.isAvailable = false;
+    vehicle.currentBookingId = booking.bookingId;
+    await vehicle.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Booking created successfully",
+      booking,
+      fareBreakdown: fareDetails.breakdown,
+    });
+  } catch (err) {
+    console.error("Error creating booking:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Failed to create booking",
+    });
+  }
+});
+
+/**
+ * Get all bookings with filters
+ * GET /api/bookings
+ */
+router.get("/", async (req, res) => {
+  try {
+    const {
+      status,
+      customerPhone,
+      vehicleId,
+      driverId,
+      category,
+      fromDate,
+      toDate,
+      page = 1,
+      limit = 20,
+    } = req.query;
+
+    const filter = {};
+
+    if (status) filter.status = status;
+    if (customerPhone) filter.customerPhone = customerPhone;
+    if (vehicleId) filter.vehicleId = Number(vehicleId);
+    if (driverId) filter.driverId = driverId;
+    if (category) filter.vehicleCategory = category;
+
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) filter.createdAt.$lte = new Date(toDate);
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [bookings, total] = await Promise.all([
+      Booking.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      Booking.countDocuments(filter),
+    ]);
+
+    res.json({
+      success: true,
+      bookings,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching bookings:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch bookings",
+    });
+  }
+});
+
+/**
+ * Get booking by ID
+ * GET /api/bookings/:id
+ */
+router.get("/:id", async (req, res) => {
+  try {
+    const bookingId = Number(req.params.id);
+    const booking = await Booking.findOne({ bookingId }).lean();
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      booking,
+    });
+  } catch (err) {
+    console.error("Error fetching booking:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch booking",
+    });
+  }
+});
+
+/**
+ * Update booking status
+ * PATCH /api/bookings/:id/status
+ */
+router.patch("/:id/status", async (req, res) => {
+  try {
+    const bookingId = Number(req.params.id);
+    const { status, notes, updatedBy = "admin" } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: "Status is required",
+      });
+    }
+
+    const booking = await Booking.findOne({ bookingId });
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    // Update booking status
+    await booking.updateStatus(status, updatedBy, notes);
+
+    // Handle vehicle availability
+    const vehicle = await Vehicle.findOne({ vehicleId: booking.vehicleId });
+    if (vehicle) {
+      if (
+        status === "completed" ||
+        status === "cancelled" ||
+        status === "driver_cancelled" ||
+        status === "no_show"
+      ) {
+        vehicle.isAvailable = true;
+        vehicle.currentBookingId = null;
+      } else if (status === "confirmed" || status === "driver_assigned") {
+        vehicle.isAvailable = false;
+        vehicle.currentBookingId = bookingId;
+      }
+      await vehicle.save();
+    }
+
+    res.json({
+      success: true,
+      message: "Booking status updated",
+      booking,
+    });
+  } catch (err) {
+    console.error("Error updating booking status:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update booking status",
+    });
+  }
+});
+
+/**
+ * Assign driver to booking
+ * PATCH /api/bookings/:id/assign-driver
+ */
+router.patch("/:id/assign-driver", async (req, res) => {
+  try {
+    const bookingId = Number(req.params.id);
+    const { driverId } = req.body;
+
+    if (!driverId) {
+      return res.status(400).json({
+        success: false,
+        message: "Driver ID is required",
+      });
+    }
+
+    const booking = await Booking.findOne({ bookingId });
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    // Check if driver has active booking
+    const driverActiveBooking = await Booking.findActiveBookingForDriver(
+      driverId
+    );
+    if (driverActiveBooking) {
+      return res.status(400).json({
+        success: false,
+        message: "Driver is already assigned to another booking",
+      });
+    }
+
+    const driver = await Driver.findById(driverId);
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: "Driver not found",
+      });
+    }
+
+    booking.driverId = driverId;
+    booking.driverName = driver.name;
+    booking.driverPhone = driver.phone;
+    await booking.updateStatus(
+      "driver_assigned",
+      "admin",
+      `Driver ${driver.name} assigned`
+    );
+
+    res.json({
+      success: true,
+      message: "Driver assigned successfully",
+      booking,
+    });
+  } catch (err) {
+    console.error("Error assigning driver:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to assign driver",
+    });
+  }
+});
+
+/**
+ * Cancel booking
+ * POST /api/bookings/:id/cancel
+ */
+router.post("/:id/cancel", async (req, res) => {
+  try {
+    const bookingId = Number(req.params.id);
+    const { reason, cancelledBy = "customer" } = req.body;
+
+    const booking = await Booking.findOne({ bookingId });
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (
+      ["completed", "cancelled", "driver_cancelled", "no_show"].includes(
+        booking.status
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot cancel booking in current status",
+      });
+    }
+
+    // Calculate cancellation charge
+    const cancellationCharge = calculateCancellationCharge(
+      booking.status,
+      booking.totalFare
+    );
+
+    booking.status =
+      cancelledBy === "driver" ? "driver_cancelled" : "cancelled";
+    booking.cancellationReason = reason;
+    booking.cancelledBy = cancelledBy;
+    booking.cancelledAt = new Date();
+    booking.cancellationCharge = cancellationCharge;
+
+    await booking.save();
+
+    // Free up vehicle
+    const vehicle = await Vehicle.findOne({ vehicleId: booking.vehicleId });
+    if (vehicle) {
+      vehicle.isAvailable = true;
+      vehicle.currentBookingId = null;
+      await vehicle.save();
+    }
+
+    res.json({
+      success: true,
+      message: "Booking cancelled",
+      booking,
+      cancellationCharge,
+    });
+  } catch (err) {
+    console.error("Error cancelling booking:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to cancel booking",
+    });
+  }
+});
+
+/**
+ * Rate booking
+ * POST /api/bookings/:id/rate
+ */
+router.post("/:id/rate", async (req, res) => {
+  try {
+    const bookingId = Number(req.params.id);
+    const { customerRating, customerFeedback, driverRating, driverFeedback } =
+      req.body;
+
+    const booking = await Booking.findOne({ bookingId });
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (booking.status !== "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Can only rate completed bookings",
+      });
+    }
+
+    if (customerRating) {
+      booking.customerRating = customerRating;
+      booking.customerFeedback = customerFeedback;
+    }
+
+    if (driverRating) {
+      booking.driverRating = driverRating;
+      booking.driverFeedback = driverFeedback;
+    }
+
+    await booking.save();
+
+    res.json({
+      success: true,
+      message: "Rating submitted successfully",
+      booking,
+    });
+  } catch (err) {
+    console.error("Error rating booking:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to submit rating",
+    });
+  }
+});
+
+/**
+ * Get booking statistics
+ * GET /api/bookings/stats/overview
+ */
+router.get("/stats/overview", async (req, res) => {
+  try {
+    const { fromDate, toDate } = req.query;
+
+    const dateFilter = {};
+    if (fromDate || toDate) {
+      dateFilter.createdAt = {};
+      if (fromDate) dateFilter.createdAt.$gte = new Date(fromDate);
+      if (toDate) dateFilter.createdAt.$lte = new Date(toDate);
+    }
+
+    const [
+      totalBookings,
+      completedBookings,
+      cancelledBookings,
+      activeBookings,
+      totalRevenue,
+      categoryStats,
+    ] = await Promise.all([
+      Booking.countDocuments(dateFilter),
+      Booking.countDocuments({ ...dateFilter, status: "completed" }),
+      Booking.countDocuments({
+        ...dateFilter,
+        status: { $in: ["cancelled", "driver_cancelled", "no_show"] },
+      }),
+      Booking.countDocuments({
+        status: {
+          $in: [
+            "pending",
+            "confirmed",
+            "driver_assigned",
+            "driver_arrived",
+            "started",
+          ],
+        },
+      }),
+      Booking.aggregate([
+        { $match: { ...dateFilter, status: "completed" } },
+        { $group: { _id: null, total: { $sum: "$totalFare" } } },
+      ]),
+      Booking.aggregate([
+        { $match: dateFilter },
+        {
+          $group: {
+            _id: "$vehicleCategory",
+            count: { $sum: 1 },
+            revenue: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "completed"] }, "$totalFare", 0],
+              },
+            },
+          },
+        },
+      ]),
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalBookings,
+        completedBookings,
+        cancelledBookings,
+        activeBookings,
+        totalRevenue: totalRevenue[0]?.total || 0,
+        categoryStats: categoryStats.map((cat) => ({
+          category: cat._id,
+          bookings: cat.count,
+          revenue: cat.revenue,
+        })),
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching booking stats:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch booking statistics",
+    });
+  }
+});
+
+export default router;
