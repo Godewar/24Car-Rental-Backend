@@ -174,14 +174,16 @@ export const getCategories = async (req, res) => {
 };
 
 /**
- * @desc    Get vehicles by category with pagination
+ * @desc    Get vehicles by category with pagination and brand filtering
  * @route   GET /api/vehicles/by-category/:category
+ * @query   ?brand=Honda (optional - filter by brand/subcategory)
  * @access  Public
  */
 export const getVehiclesByCategory = async (req, res) => {
   try {
     const { category } = req.params;
     const {
+      brand,
       status = "active",
       kycStatus,
       isAvailable,
@@ -208,6 +210,11 @@ export const getVehiclesByCategory = async (req, res) => {
     if (status) query.status = status;
     if (kycStatus) query.kycStatus = kycStatus;
     if (isAvailable !== undefined) query.isAvailable = isAvailable === "true";
+
+    // Add brand filter (subcategory)
+    if (brand) {
+      query.brand = new RegExp(brand, "i"); // Case-insensitive search
+    }
 
     const skip = (Number(page) - 1) * Number(limit);
 
