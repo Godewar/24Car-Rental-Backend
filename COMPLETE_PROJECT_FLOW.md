@@ -271,22 +271,23 @@ Body Parser: 50MB limit (supports image uploads)
 
 ### **Vehicle Management** (14 endpoints)
 
-| Method | Endpoint                                     | Description                           | Auth Required |
-| ------ | -------------------------------------------- | ------------------------------------- | ------------- |
-| GET    | `/api/vehicles`                              | List all vehicles                     | ❌            |
-| GET    | `/api/vehicles/:id`                          | Get vehicle details                   | ❌            |
-| GET    | `/api/vehicles/categories`                   | Get vehicle categories                | ❌            |
-| GET    | `/api/vehicles/by-category/:category?brand=` | Filter by category & brand (optional) | ❌            |
-| GET    | `/api/vehicles/nearby?lat&lng&radius`        | Nearby vehicles                       | ❌            |
-| GET    | `/api/vehicles/search?q=`                    | Search vehicles                       | ❌            |
-| POST   | `/api/vehicles`                              | Create vehicle                        | ✅            |
-| PUT    | `/api/vehicles/:id`                          | Update vehicle                        | ✅            |
-| DELETE | `/api/vehicles/:id`                          | Delete vehicle                        | ✅            |
-| GET    | `/api/vehicles/:id/daily-rent-slabs`         | Get daily pricing                     | ❌            |
-| PUT    | `/api/vehicles/:id/daily-rent-slabs`         | Update daily pricing                  | ✅            |
-| GET    | `/api/vehicles/:id/weekly-rent-slabs`        | Get weekly pricing                    | ❌            |
-| PUT    | `/api/vehicles/:id/weekly-rent-slabs`        | Update weekly pricing                 | ✅            |
-| GET    | `/api/vehicles/:id/monthly-profit`           | Get profit analysis                   | ✅            |
+| Method | Endpoint                                     | Description                                             | Auth Required |
+| ------ | -------------------------------------------- | ------------------------------------------------------- | ------------- |
+| GET    | `/api/vehicles`                              | List all vehicles (organized by category→brand→vehicle) | ❌            |
+| GET    | `/api/vehicles?flat=true`                    | List all vehicles (legacy flat format)                  | ❌            |
+| GET    | `/api/vehicles/:id`                          | Get vehicle details                                     | ❌            |
+| GET    | `/api/vehicles/categories`                   | Get vehicle categories                                  | ❌            |
+| GET    | `/api/vehicles/by-category/:category?brand=` | Filter by category & brand (optional)                   | ❌            |
+| GET    | `/api/vehicles/nearby?lat&lng&radius`        | Nearby vehicles                                         | ❌            |
+| GET    | `/api/vehicles/search?q=`                    | Search vehicles                                         | ❌            |
+| POST   | `/api/vehicles`                              | Create vehicle                                          | ✅            |
+| PUT    | `/api/vehicles/:id`                          | Update vehicle                                          | ✅            |
+| DELETE | `/api/vehicles/:id`                          | Delete vehicle                                          | ✅            |
+| GET    | `/api/vehicles/:id/daily-rent-slabs`         | Get daily pricing                                       | ❌            |
+| PUT    | `/api/vehicles/:id/daily-rent-slabs`         | Update daily pricing                                    | ✅            |
+| GET    | `/api/vehicles/:id/weekly-rent-slabs`        | Get weekly pricing                                      | ❌            |
+| PUT    | `/api/vehicles/:id/weekly-rent-slabs`        | Update weekly pricing                                   | ✅            |
+| GET    | `/api/vehicles/:id/monthly-profit`           | Get profit analysis                                     | ✅            |
 
 ---
 

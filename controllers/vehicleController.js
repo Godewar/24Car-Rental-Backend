@@ -415,13 +415,110 @@ export const searchVehicles = async (req, res) => {
  * @route   GET /api/vehicles
  * @access  Public
  */
+/**
+ * @desc    Get all vehicles organized by category and subcategory (brand)
+ * @route   GET /api/vehicles
+ * @access  Public
+ * @returns {Object} Vehicles grouped by category > brand > vehicle name
+ */
 export const getAllVehicles = async (req, res) => {
   try {
     const list = await Vehicle.find().lean();
-    res.json(list.map(normalizeVehicleShape));
+
+    // Check if user wants flat list (legacy support)
+    if (req.query.flat === "true") {
+      return res.json(list.map(normalizeVehicleShape));
+    }
+
+    // Organize by category > brand > vehicle
+    const organized = {
+      success: true,
+      totalVehicles: list.length,
+      categories: {},
+    };
+
+    // Group vehicles by category
+    list.forEach((vehicle) => {
+      const category = vehicle.category || "Uncategorized";
+      const brand = vehicle.brand || "Unknown Brand";
+      const vehicleName =
+        vehicle.vehicleName || vehicle.model || "Unknown Vehicle";
+
+      // Initialize category if doesn't exist
+      if (!organized.categories[category]) {
+        organized.categories[category] = {
+          name: category,
+          totalVehicles: 0,
+          brands: {},
+        };
+      }
+
+      // Initialize brand within category if doesn't exist
+      if (!organized.categories[category].brands[brand]) {
+        organized.categories[category].brands[brand] = {
+          name: brand,
+          totalVehicles: 0,
+          vehicles: [],
+        };
+      }
+
+      // Add vehicle to brand
+      organized.categories[category].brands[brand].vehicles.push({
+        vehicleId: vehicle.vehicleId,
+        vehicleName: vehicleName,
+        registrationNumber: vehicle.registrationNumber,
+        model: vehicle.model,
+        color: vehicle.color,
+        fuelType: vehicle.fuelType,
+        year: vehicle.year,
+        status: vehicle.status,
+        kycStatus: vehicle.kycStatus,
+        isAvailable: vehicle.isAvailable,
+        currentLocation: vehicle.currentLocation,
+        // Include full normalized vehicle data
+        fullDetails: normalizeVehicleShape(vehicle),
+      });
+
+      // Update counts
+      organized.categories[category].totalVehicles++;
+      organized.categories[category].brands[brand].totalVehicles++;
+    });
+
+    // Convert nested objects to arrays for easier frontend consumption
+    const categoriesArray = Object.values(organized.categories).map(
+      (category) => ({
+        ...category,
+        brands: Object.values(category.brands).map((brand) => ({
+          ...brand,
+          vehicles: brand.vehicles,
+        })),
+      })
+    );
+
+    res.json({
+      success: true,
+      totalVehicles: organized.totalVehicles,
+      categories: categoriesArray,
+      // Also provide summary stats
+      summary: {
+        totalCategories: categoriesArray.length,
+        categoryCounts: categoriesArray.reduce((acc, cat) => {
+          acc[cat.name] = cat.totalVehicles;
+          return acc;
+        }, {}),
+        totalBrands: categoriesArray.reduce(
+          (sum, cat) => sum + cat.brands.length,
+          0
+        ),
+      },
+    });
   } catch (err) {
     console.error("Error fetching vehicles:", err);
-    res.status(500).json({ message: "Failed to fetch vehicles" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch vehicles",
+      error: err.message,
+    });
   }
 };
 
