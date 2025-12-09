@@ -1,4 +1,5 @@
 import Vehicle from "../models/vehicle.js";
+import Category from "../models/category.js";
 import { uploadToCloudinary } from "../lib/cloudinary.js";
 
 // Helper Functions
@@ -156,17 +157,35 @@ const uploadVehicleDocuments = async (data, identifier) => {
 };
 
 /**
- * @desc    Get vehicle categories
+ * @desc    Get vehicle categories with images
  * @route   GET /api/vehicles/categories
  * @access  Public
  */
 export const getCategories = async (req, res) => {
   try {
-    res.json([
-      { key: "Car", label: "Car" },
-      { key: "Bike", label: "Bike" },
-      { key: "Scooty", label: "Scooty" },
-    ]);
+    // Fetch categories from database
+    const categories = await Category.find({ isActive: true })
+      .sort({ displayOrder: 1 })
+      .lean();
+
+    // If no categories in DB, return default
+    if (!categories || categories.length === 0) {
+      return res.json([
+        { key: "Car", label: "Car", image: null, icon: null },
+        { key: "Bike", label: "Bike", image: null, icon: null },
+        { key: "Scooty", label: "Scooty", image: null, icon: null },
+      ]);
+    }
+
+    res.json(
+      categories.map((cat) => ({
+        key: cat.key,
+        label: cat.label,
+        image: cat.image,
+        icon: cat.icon,
+        description: cat.description,
+      }))
+    );
   } catch (error) {
     console.error("Error fetching categories:", error);
     res.status(500).json({ message: "Failed to fetch categories" });
@@ -430,6 +449,17 @@ export const getAllVehicles = async (req, res) => {
       return res.json(list.map(normalizeVehicleShape));
     }
 
+    // Fetch category images from database
+    const categoryDocs = await Category.find({ isActive: true }).lean();
+    const categoryMap = {};
+    categoryDocs.forEach((cat) => {
+      categoryMap[cat.key] = {
+        image: cat.image,
+        icon: cat.icon,
+        description: cat.description,
+      };
+    });
+
     // Organize by category > brand > vehicle
     const organized = {
       success: true,
@@ -448,6 +478,9 @@ export const getAllVehicles = async (req, res) => {
       if (!organized.categories[category]) {
         organized.categories[category] = {
           name: category,
+          image: categoryMap[category]?.image || null,
+          icon: categoryMap[category]?.icon || null,
+          description: categoryMap[category]?.description || "",
           totalVehicles: 0,
           brands: {},
         };

@@ -23,6 +23,7 @@ import vehicleOptionsRouter from "./vehicleOptions.js";
 import staticDriverEnrollmentsRouter from "./staticDriverEnrollments.js";
 import paymentsRouter from "./payments.js";
 import managersRouter from "./managers.js";
+import categoriesRouter from "./categories.js";
 
 const router = express.Router();
 router.use("/driver-wallet", driverWalletRouter);
@@ -31,6 +32,7 @@ router.use("/auth", authRouter);
 router.use("/drivers", driversRouter);
 router.use("/drivers", driverAuthRouter);
 router.use("/driver-plan-selections", driverPlanSelectionsRouter);
+router.use("/categories", categoriesRouter);
 router.use("/vehicles", vehiclesRouter);
 router.use("/vehicles-by-driver", vehiclesByDriverRouter);
 router.use("/bookings", bookingsRouter);
